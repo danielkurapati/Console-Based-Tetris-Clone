@@ -8,15 +8,16 @@ A block stacking tetris game that runs in the terminal, written in object-orient
 * Menu, pause and game over screen
 
 **Controls:**
-Key	Action
-Left/A	Move left
-Right/D	Move right
-Up/W	Rotate clockwise
-Down/S	Soft drop
-Space	Hard drop
-P	Pause/resume
-Enter	Start, resume or play again
-Q/Esc	Quit
+| Key     | Action                      |
+|---------|-----------------------------|
+| Left/A  | Move Left                   |
+| Right/D | Move Right                  |
+| Up/W    | Rotate Clockwise            |
+| Down/S  | Soft Drop                   |
+| Space   | Hard Drop                   |
+| P       | Pause/Resume                |
+| Enter   | Start, Resume or Play Again |
+| Q/Esc   | Quit                        |
 
 **Requirements:**
 * A C++17 compiler: g++ 7+, clang++, or MSVC (Visual Studio 2017+)

@@ -1,0 +1,18 @@
+# build output
+build/
+*.exe
+*.o
+*.obj
+tetris
+tetris_server
+
+# local database (created by the server on first start)
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# local secrets - never commit these
+.env
+*.env
+*.log

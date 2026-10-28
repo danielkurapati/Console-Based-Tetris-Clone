@@ -1,4 +1,5 @@
-// All settings and secrets come from environment variables
+// Leaderboard REST API server (C++).
+// All settings and secrets come from environment variables - see Settings.h.
 
 #include <exception>
 #include <iostream>
@@ -11,9 +12,8 @@ int main() {
     try {
         const Settings settings = Settings::fromEnvironment();
 
-        Database database(DbSettings{settings.dbHost, settings.dbPort, settings.dbUser,
-                                     settings.dbPassword, settings.dbName});
-        database.initSchema();   // fails fast if the database cannot be reached
+        Database database(DbSettings{settings.dbFile});
+        database.initSchema();   // creates the file and table; fails fast if that is impossible
 
         ApiServer server(settings, database);
         if (!server.run()) {
@@ -23,7 +23,7 @@ int main() {
         }
     } catch (const DbError& ex) {
         std::cerr << "ERROR: cannot use the database: " << ex.what() << "\n"
-                  << "Check that MySQL is running and that the DATABASE_* variables are right.\n";
+                  << "Check that the folder is writable, or set DATABASE_FILE to another path.\n";
         return 1;
     } catch (const std::exception& ex) {
         std::cerr << "ERROR: " << ex.what() << "\n";

@@ -1,15 +1,16 @@
 #pragma once
+// Database: the only class that talks to the database (SQLite, one file on disk).
+// It uses PREPARED STATEMENTS, so user input is never part of the SQL text
+// (no SQL injection). Every call opens its own short-lived connection to the file,
+// which makes the class safe to use from several server threads at once.
+// SQLite itself is vendored in server/third_party/ - nothing to install.
 
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 struct DbSettings {
-    std::string host;
-    unsigned int port = 3306;
-    std::string user;
-    std::string password;
-    std::string name;
+    std::string file;   // path of the database file, e.g. "tetris.db"
 };
 
 struct NewScore {
@@ -35,12 +36,11 @@ public:
 class Database {
 public:
     explicit Database(DbSettings settings);
-    ~Database();
     Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
 
-    void initSchema() const;                              // CREATE TABLE IF NOT EXISTS
-    bool isReachable() const;                             // can we log in?
+    void initSchema() const;                              // creates the file and the table
+    bool isReachable() const;                             // can we open the file?
     unsigned long long insertScore(const NewScore& score) const;   // returns the new id
     std::vector<ScoreRow> topScores(int limit) const;     // best first
 

@@ -624,4 +624,4 @@ classDiagram
 
 ## License
 
-Add a license file (for example MIT) before publishing, and name it here.
+This project is licensed under [MIT License](LICENSE.txt)

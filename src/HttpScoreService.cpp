@@ -1,3 +1,14 @@
+// cpp-httplib needs Windows 10 or later. Some MinGW toolchains default to an older target
+// version, so ask for Windows 10 here, before any system header is included.
+#ifdef _WIN32
+    #if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x0A00
+        #undef _WIN32_WINNT
+    #endif
+    #ifndef _WIN32_WINNT
+        #define _WIN32_WINNT 0x0A00
+    #endif
+#endif
+
 #include "HttpScoreService.h"
 
 #ifdef _WIN32
@@ -19,7 +30,7 @@ void configure(httplib::Client& client) {
     client.set_write_timeout(kTimeoutSeconds, 0);
 }
 
-}
+}  // namespace
 
 HttpScoreService::HttpScoreService(std::string baseUrl, std::string apiKey, int boardSize)
     : baseUrl_(std::move(baseUrl)),

@@ -13,7 +13,7 @@ The whole project is C++. The game needs no libraries and runs on Linux, macOS a
 | .  .  .  .  .  .  .  .  .  .|   Level: 2
 | .  .  .  .  .  .  .  .  .  .|   Lines: 11
 |          GAME OVER           |   LEADERBOARD
-| .  .  .  .  .  .  .  .  .  .|    1. Daniel         3400
+| .  .  .  .  .  .  .  .  .  .|    1. Alice         3400
 | .  .  .  .  .  .  .  .  .  .|    2. Gourav        1200
 +--------------------+
 ```
@@ -110,7 +110,103 @@ The three third-party libraries are included in the project, so nothing needs to
 
 The first compile of each program takes 20 to 30 seconds, because the HTTP library is large. SQLite is a big C file too, so the first server build takes about 30 seconds more.
 
-On Ubuntu / Debian and on Windows (MSYS2) you can use the helper scripts instead of typing the commands: `./install_deps.sh` (once), `./build.sh` and `./start_all.sh` on Linux, `build.bat` and `start_all.bat` on Windows. They run the commands below for you.
+On Ubuntu / Debian, macOS and Windows (MSYS2) you can use the helper scripts instead of typing the commands. They run the commands below for you. The steps are in the next section. If you prefer to type the commands yourself, skip to "1. The game".
+
+### Quick start with the helper scripts
+
+Run every script from the project folder (the one that contains `src/` and `server/`).
+
+**Ubuntu / Debian: `.sh` files**
+
+1. Open a terminal in the project folder.
+2. Make the scripts executable (only needed if you get "Permission denied"):
+
+   ```bash
+   chmod +x install_deps.sh build.sh start_all.sh
+   ```
+
+3. Install the compiler and tools (once per computer). It asks for your `sudo` password and installs `g++`, `gcc` and `curl`:
+
+   ```bash
+   ./install_deps.sh
+   ```
+
+4. Build the game and the server. The first build takes about a minute, because SQLite is compiled once. Run it again after every code change:
+
+   ```bash
+   ./build.sh
+   ```
+
+5. Start everything:
+
+   ```bash
+   ./start_all.sh
+   ```
+
+   The script asks you to choose an API key. Type any secret text; nothing is shown while you type. It then starts the leaderboard server in the background, waits until the server answers, and starts the game. When you quit the game, the server is stopped too.
+
+**macOS: the same `.sh` files**
+
+`build.sh` and `start_all.sh` work on macOS too. Only `install_deps.sh` is for Ubuntu / Debian (it uses `apt`), so on a Mac you install the compiler another way.
+
+1. Open Terminal in the project folder.
+2. Install the compiler (once per computer). This installs Apple's command line tools, which include `clang++` as `g++` and `gcc`, and `curl` is already part of macOS. If it says the tools are already installed, go on to the next step:
+
+   ```bash
+   xcode-select --install
+   ```
+
+3. Make the scripts executable (only needed if you get "Permission denied"):
+
+   ```bash
+   chmod +x build.sh start_all.sh
+   ```
+
+4. Build the game and the server. The first build takes about a minute, because SQLite is compiled once:
+
+   ```bash
+   ./build.sh
+   ```
+
+5. Start everything on port 5001. On macOS, port 5000 is already used by AirPlay Receiver, so the default port does not work:
+
+   ```bash
+   PORT=5001 ./start_all.sh
+   ```
+
+   The script asks you to choose an API key, starts the server in the background, then starts the game. When you quit the game, the server is stopped.
+
+**Windows 10 / 11: `.bat` files**
+
+1. Install [MSYS2](https://www.msys2.org) (once per computer). Open the "MSYS2 UCRT64" terminal and install the compiler:
+
+   ```bash
+   pacman -S mingw-w64-ucrt-x86_64-gcc
+   ```
+
+2. Open the project folder in File Explorer and double-click `build.bat`, or run it from PowerShell:
+
+   ```powershell
+   .\build.bat
+   ```
+
+   If `g++` is not on your PATH, the script adds `C:\msys64\ucrt64\bin` for itself. The first build takes about a minute, because SQLite is compiled once. Run it again after every code change.
+3. Double-click `start_all.bat`, or run it from PowerShell:
+
+   ```powershell
+   .\start_all.bat
+   ```
+
+   The script asks you to choose an API key. Type any secret text. The leaderboard server opens in its own window, then the game starts in the current window. When you quit the game, the server is stopped. You can then close the server window.
+
+**Good to know**
+
+- The API key is typed when you start, and is only kept in that terminal's environment. It is never written to a file. To skip the question, set it first: `export API_KEY=mysecret` (Linux) or `set API_KEY=mysecret` (Windows cmd).
+- The same key is used by the server (`API_KEY`) and by the game (`SCORE_API_KEY`). The scripts set both for you.
+- If port 5000 is busy, choose another one: `PORT=5001 ./start_all.sh` (Linux), or on Windows run `set PORT=5001` and `set SCORE_API_URL=http://127.0.0.1:5001` before `start_all.bat`.
+- Scores are saved in the file `tetris.db` in the project folder. The Linux script writes the server's messages to `server.log`.
+- If a script says that `tetris` / `tetris.exe` is missing, run the build script first.
+- To play without the leaderboard, run `./tetris` (or `tetris.exe`) on its own. The game works offline.
 
 ### 1. The game
 
@@ -255,6 +351,231 @@ Console-Based-Tetris-Clone/
     └── third_party/             httplib.h and json.hpp (single-header libraries)
 ```
 
+## Diagrams
+
+GitHub draws these diagrams by itself when you open this page.
+
+### System architecture
+
+The game and the server are two separate programs. They only talk through HTTP and JSON. Only the server touches the database file.
+
+```mermaid
+flowchart LR
+    subgraph GAME["tetris (the game, C++)"]
+        direction TB
+        KB["Terminal<br/>raw keyboard + ANSI screen"] --> IH["InputHandler"]
+        IH --> EQ["EventQueue"]
+        EQ --> LOOP["Game::run()<br/>event loop, 33 ms frame"]
+        LOOP --> SP["StateProxy<br/>Menu / Playing / Paused / GameOver"]
+        SP --> CTX["GameContext<br/>Board, Tetromino, ScoreManager"]
+        SP --> REN["ConsoleRenderer<br/>(IRenderer)"]
+        CTX --> SVC["IScoreService"]
+        SVC --> HTTP["HttpScoreService<br/>worker thread + task queue"]
+        SVC -.-> NULL["NullScoreService<br/>(offline)"]
+    end
+    subgraph SERVER["tetris_server (REST API, C++)"]
+        direction TB
+        API["ApiServer<br/>validation + X-API-Key check"] --> DB["Database<br/>prepared statements"]
+    end
+    FILE[("SQLite file<br/>tetris.db")]
+    HTTP -- "POST /scores, GET /scores, GET /health<br/>HTTP + JSON, 127.0.0.1" --> API
+    DB -- "SQL" --> FILE
+    ENV1["env: SCORE_API_KEY<br/>SCORE_API_URL"] -.-> HTTP
+    ENV2["env: API_KEY<br/>DATABASE_FILE, PORT"] -.-> API
+```
+
+### UML class diagram: the game
+
+Filled diamond = the class owns the other one (composition). Hollow diamond = it only points to an object owned elsewhere. Triangle = inheritance (solid) or implementing an interface (dashed).
+
+```mermaid
+classDiagram
+    direction TB
+    class Game {
+        -Terminal terminal_
+        -InputHandler input_
+        -EventQueue events_
+        -GameContext ctx_
+        -StateProxy states_
+        -ConsoleRenderer renderer_
+        +Game(IScoreService, string)
+        +run()
+    }
+    class Terminal {
+        +readKey() int
+        +write(string)$
+    }
+    class InputHandler {
+        +poll(Terminal, EventQueue)
+    }
+    class EventQueue {
+        +push(Event)
+        +poll(Event) bool
+        +empty() bool
+    }
+    class GameContext {
+        +Board board
+        +TetrominoFactory factory
+        +Tetromino current
+        +Tetromino next
+        +ScoreManager score
+        +string playerName
+        +reset()
+        +spawnNext() bool
+        +finishGame()
+    }
+    class StateProxy {
+        -unique_ptr~GameState~ current_
+        -unique_ptr~GameState~ pending_
+        +change(GameState)
+        +applyPending()
+        +handleEvent()
+        +update()
+        +render()
+    }
+    class GameState {
+        <<abstract>>
+        +handleEvent(Event, GameContext)*
+        +update(GameContext)
+        +render(IRenderer, GameContext)*
+    }
+    class MenuState
+    class PlayingState {
+        -tryMove()
+        -tryRotate()
+        -gravityStep()
+        -hardDrop()
+        -lockPiece()
+    }
+    class PausedState
+    class GameOverState
+    class Board {
+        -Matrix~int~ grid_
+        +at(r, c) int
+        +isValid(Tetromino) bool
+        +lock(Tetromino)
+        +clearFullLines() int
+        +reset()
+    }
+    class Matrix~T~ {
+        -vector~T~ data_
+        +rows() int
+        +cols() int
+        +operator[](r) RowProxy
+        +rotatedCW() Matrix
+        +fill(T)
+    }
+    class RowProxy {
+        +operator[](c) T
+    }
+    class Tetromino {
+        -Matrix~int~ shape_
+        -int type_, x_, y_
+        +cells() vector
+        +movedBy(dx, dy) Tetromino
+        +rotatedCW() Tetromino
+    }
+    class TetrominoFactory {
+        -vector~int~ bag_
+        +next() Tetromino
+        +make(type) Tetromino
+    }
+    class ScoreManager {
+        -int score_, lines_, level_
+        +onLinesCleared(n)
+        +onSoftDrop(cells)
+        +onHardDrop(cells)
+        +dropInterval() ms
+    }
+    class IRenderer {
+        <<interface>>
+        +beginFrame()*
+        +drawBoard()*
+        +drawPiece()*
+        +drawHUD()*
+        +drawLeaderboard()*
+        +endFrame()*
+    }
+    class ConsoleRenderer
+    class IScoreService {
+        <<interface>>
+        +submit(ScoreEntry)*
+        +refresh()*
+        +board() ScoreBoard*
+    }
+    class NullScoreService
+    class HttpScoreService {
+        -thread worker_
+        -mutex, condition_variable
+        -queue tasks_
+        +submit()
+        +refresh()
+        +board() ScoreBoard
+    }
+
+    Game *-- Terminal
+    Game *-- InputHandler
+    Game *-- EventQueue
+    Game *-- GameContext
+    Game *-- StateProxy
+    Game *-- ConsoleRenderer
+    Game o-- IScoreService : injected
+    GameContext *-- Board
+    GameContext *-- TetrominoFactory
+    GameContext *-- Tetromino
+    GameContext *-- ScoreManager
+    GameContext o-- StateProxy
+    GameContext o-- IScoreService
+    StateProxy o-- GameState
+    GameState <|-- MenuState
+    GameState <|-- PlayingState
+    GameState <|-- PausedState
+    GameState <|-- GameOverState
+    Board *-- Matrix
+    Tetromino *-- Matrix
+    Matrix ..> RowProxy : returns
+    IRenderer <|.. ConsoleRenderer
+    IScoreService <|.. NullScoreService
+    IScoreService <|.. HttpScoreService
+```
+
+### UML class diagram: the server
+
+```mermaid
+classDiagram
+    direction LR
+    class Settings {
+        +string dbFile
+        +string apiKey
+        +int serverPort
+        +fromEnvironment()$ Settings
+    }
+    class ApiServer {
+        -Settings settings_
+        -Database db_
+        +ApiServer(Settings, Database)
+        +run() bool
+        -registerRoutes()
+    }
+    class Database {
+        +Database(DbSettings)
+        +initSchema()
+        +isReachable() bool
+        +insertScore(NewScore) id
+        +topScores(limit) vector~ScoreRow~
+    }
+    class DbSettings
+    class NewScore
+    class ScoreRow
+    class DbError
+    ApiServer o-- Database
+    ApiServer *-- Settings
+    Database ..> DbSettings
+    Database ..> NewScore
+    Database ..> ScoreRow
+    Database ..> DbError : throws
+```
+
 ## Design
 
 ### The game
@@ -285,6 +606,7 @@ Console-Based-Tetris-Clone/
 - **Colors look garbled on Windows:** use Windows Terminal or PowerShell instead of the old `cmd.exe` window.
 - **`undefined reference` or `unresolved external symbol`:** one of the `.cpp` files was not compiled. Build all files of that program together.
 - **Linker errors mentioning `WSA...` on Windows:** add `-lws2_32` (MinGW).
+- **Windows: `cpp-httplib doesn't support Windows 8 or lower`:** your MinGW defaults to an old Windows target. The project now asks for Windows 10 itself (top of `src/HttpScoreService.cpp` and `server/ApiServer.cpp`), so make sure both files are up to date. You can also add `-D_WIN32_WINNT=0x0A00` to the compile commands.
 - **Terminal looks broken after a crash:** run `reset` on Linux or macOS.
 
 ## Security notes
